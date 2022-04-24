@@ -1,0 +1,276 @@
+---
+title: "&nbsp;"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: fill
+    css: "styles.css"
+    
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(readxl)
+library(tidyverse)
+library(lubridate)
+library(httr)
+library(rlist)
+library(xlsx)
+library(sf)
+library(htmlwidgets)
+
+# Maps
+library(leaflet)
+
+
+# Scaling circles
+library(scales)
+
+library(plotly)
+
+# Actually only for fillCol/fillRow
+library(shiny)
+
+# For nice tables
+library(DT)
+
+# For linking of different objects
+library(crosstalk)
+
+# Remove scientific notation
+options(scipen=999)
+
+# Create a custom number format to present more legible figures
+custom_number_format <- function(x){ifelse(x > 999999, paste(format(round((x/1000000), 1), nsmall=1, big.mark=","),"M"), format(round(x), nsmall=0, big.mark=","))}
+```
+
+```{r Other Prep, include=FALSE}
+# Prepare label fonts
+label_font <- list(
+  family = "Open Sans, sans-serif",
+  size = 11,
+  color = "black")
+
+label_format <- list(
+  bgcolor = "#F4F4F4",
+  bordercolor = "transparent",
+  font = label_font,
+  align = "right")
+
+# Prepare minimalist axis labels
+axis_blank <- list(
+  title = "",
+  zeroline = FALSE,
+  showline = FALSE,
+  showgrid = FALSE,
+  showticklabels = FALSE,
+  fixedrange=TRUE)
+
+axis_light_rev <- list(
+  title = "",
+  zeroline = FALSE,
+  showline = FALSE,
+  showgrid = FALSE,
+  color = "#FFF",
+  autorange = "reversed",
+  tickfont = list(size= 8,
+                  color = "#767676"),
+  fixedrange=TRUE)
+
+axis_light <- list(
+  title = "",
+  zeroline = FALSE,
+  showline = FALSE,
+  showgrid = FALSE,
+  color = "#FFF",
+  tickfont = list(size= 10,
+                  color = "#767676"),
+  fixedrange=TRUE)
+
+axis_light_8pt <- list(
+  title = "",
+  zeroline = FALSE,
+  showline = FALSE,
+  showgrid = FALSE,
+  color = "#FFF",
+  axisangle = 90,
+  tickfont = list(size= 8,
+                  color = "#767676"),
+  fixedrange=TRUE)
+
+
+axis_light_8pt_rev <- list(
+  title = "",
+  zeroline = FALSE,
+  showline = FALSE,
+  showgrid = FALSE,
+  color = "#FFF",
+  axisangle = 90,
+  autorange = "reversed",
+  tickfont = list(size= 8,
+                  color = "#767676"),
+  fixedrange=TRUE)
+
+
+axis_time_selector <- list(
+      title = "",
+      zeroline = FALSE,
+      showline = FALSE,
+      showgrid = FALSE,
+      showticklabels = FALSE,
+      rangeselector = list(
+        buttons = list(
+          list(label = "All",
+               step = "all"),
+          list(
+            count = 3,
+            label = "3-months",
+            step = "month",
+            stepmode = "backward"),
+          list(
+            count = 1,
+            label = "1-month",
+            step = "month",
+            stepmode = "backward")),
+        activecolor = "#2F2F2F",
+        bgcolor = "#1F1F1F",
+        font = list(color = "#FFFFFF",
+                    size = 8),
+        yanchor = "top",
+        y = 24))
+
+
+
+axis_time_slider <- list(
+  title = "",
+  zeroline = FALSE,
+  showline = FALSE,
+  showgrid = FALSE,
+  color = "#FFF",
+  axisangle = 90,
+  tickfont = list(size= 8,
+                  color = "#767676"),
+  showticklabels = FALSE,
+  rangeselector = list(type = 'date'))
+      
+```
+
+
+``` {r Data, include=FALSE}
+# Read in the evidence from another project
+evidence_data <- read_excel("C:\\Users\\clinton.tedja\\OneDrive - World Food Programme\\Documents (OneDrive)\\Data\\Evidence_Backend\\Evidence_Mapping.xlsx")
+
+
+# For this 2021 product
+evidence_data <- evidence_data %>%
+  filter(Date >= "2021-01-01", 
+         Date < "2022-01-01") %>%
+  filter(!str_detect(Link, "sharepoint"))
+  
+
+
+# Create the data
+evidence_data <- evidence_data %>%
+  filter(!is.na(Link)) %>%
+  # The nuance of using "Country_Regional" as a column is to pick up for groupings of regional products
+  group_by(Country_Regional, Category, Date, Link, Image) %>%
+  summarise(Title = unique(Title)) %>%
+  arrange(desc(Date)) %>% ungroup() %>%
+  mutate(
+    ID_N = row_number(),
+    Title = paste0("<a href=\"", Link,"\" target=\"_blank\">", Title,"</a>"),
+    Image = ifelse(!is.na(Image), paste0("<img src=\"", Image, "\" height=\"52\"></img>"), ""),
+    Date = as.Date(Date)
+    ) %>%
+  rename(Country_Office = Country_Regional) %>%
+  select(c(Country_Office, Category, Date, Image, Title, ID_N, Link))
+
+glimpse(evidence_data)
+
+# Enable crosstalk
+shared_data <- SharedData$new(evidence_data, group = "shared_obj")
+
+
+```
+
+
+```{r Table}
+table <- datatable(shared_data,
+                   class = c("hover"),
+                   filter = "none",
+                   autoHideNavigation = FALSE,
+                   rownames = FALSE,
+                   options = list(dom = 'ftp', 
+                                   rowCallback = JS(
+                                     "function(row, data) {",
+                                     "var full_text = data[0] + ', ' + data[1]",
+                                     "$('td', row).attr('title', full_text);",
+                                     "}"),
+                                  #pageLength = length(unique(evidence_table$ID_N)))
+                                  pageLength = 100,
+                                  order = list(list(2, 'desc')),
+                                  columnDefs = list(list(visible=FALSE,
+                                          targets = c(5, 6)))),
+                   escape = FALSE,
+                   fillContainer = TRUE) %>%
+  formatStyle('Title', fontWeight = 'bold')
+
+
+
+# Create Label
+label_total <- datatable(shared_data,
+                   colnames = "",
+                   class = c("hover"),
+                   filter = "none",
+                   autoHideNavigation = TRUE,
+                   rownames = FALSE,
+                   options = list(dom = 'it',
+                                  pageLength = 0,
+                                  # Remove header
+                                  headerCallback = JS("function(thead, data, start, end, display){",
+                                                      "  $(thead).remove();",
+                                                      "}"),
+                                  # Edit the formatting of the total list
+                                  language = list(info = "Products: _TOTAL_",
+                                                  infoFiltered = "/ _MAX_ records")),
+                   escape = FALSE,
+                   fillContainer = TRUE)
+
+```
+
+
+```{r Filters, include=FALSE}
+# Create filters
+country_filter <- filter_select(
+  id = "id-selector", label = "Select Country Office", 
+  sharedData = shared_data, group = ~Country_Office)
+
+category_filter <- filter_select(
+  id = "id-selector", label = "Select Category", 
+  sharedData = shared_data, group = ~Category)
+
+date_filter <- filter_slider(
+  id = "date_filter", label = "Select Date", width = "100%", ticks = FALSE,
+  sharedData = shared_data, column = ~Date)
+```
+
+
+Col
+-------------------------------------
+
+### Products in 2021 {.bgwhite}
+``` {r}
+
+fillCol(
+  flex = c(12, 8, 78),
+  date_filter,
+  fillRow(
+    flex = c(49, 2, 49),
+    country_filter,
+    "",
+    category_filter),
+  table,
+  height = "700")
+
+```
+
