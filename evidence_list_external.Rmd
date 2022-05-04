@@ -200,7 +200,7 @@ table <- datatable(shared_data,
                    filter = "none",
                    autoHideNavigation = FALSE,
                    rownames = FALSE,
-                   options = list(dom = 'ftp', 
+                   options = list(dom = 'tp', 
                                    rowCallback = JS(
                                      "function(row, data) {",
                                      "var full_text = data[0] + ', ' + data[1]",
@@ -217,24 +217,24 @@ table <- datatable(shared_data,
 
 
 
-# Create Label
-label_total <- datatable(shared_data,
-                   colnames = "",
-                   class = c("hover"),
-                   filter = "none",
-                   autoHideNavigation = TRUE,
-                   rownames = FALSE,
-                   options = list(dom = 'it',
-                                  pageLength = 0,
-                                  # Remove header
-                                  headerCallback = JS("function(thead, data, start, end, display){",
-                                                      "  $(thead).remove();",
-                                                      "}"),
-                                  # Edit the formatting of the total list
-                                  language = list(info = "Products: _TOTAL_",
-                                                  infoFiltered = "/ _MAX_ records")),
-                   escape = FALSE,
-                   fillContainer = TRUE)
+# # Create Label
+# label_total <- datatable(shared_data,
+#                    colnames = "",
+#                    class = c("hover"),
+#                    filter = "none",
+#                    autoHideNavigation = TRUE,
+#                    rownames = FALSE,
+#                    options = list(dom = 'it',
+#                                   pageLength = 0,
+#                                   # Remove header
+#                                   headerCallback = JS("function(thead, data, start, end, display){",
+#                                                       "  $(thead).remove();",
+#                                                       "}"),
+#                                   # Edit the formatting of the total list
+#                                   language = list(info = "Products: _TOTAL_",
+#                                                   infoFiltered = "/ _MAX_ records")),
+#                    escape = FALSE,
+#                    fillContainer = TRUE)
 
 ```
 
